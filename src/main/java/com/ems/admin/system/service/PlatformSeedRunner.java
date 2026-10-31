@@ -1,0 +1,163 @@
+package com.ems.admin.system.service;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.ems.admin.common.TenantIds;
+import com.ems.admin.framework.tenant.TenantContext;
+import com.ems.admin.system.Perms;
+import com.ems.admin.system.RoleTemplates;
+import com.ems.admin.system.entity.SysMenu;
+import com.ems.admin.system.entity.SysRole;
+import com.ems.admin.system.entity.SysUser;
+import com.ems.admin.system.entity.SysUserRole;
+import com.ems.admin.system.mapper.SysMenuMapper;
+import com.ems.admin.system.mapper.SysRoleMapper;
+import com.ems.admin.system.mapper.SysUserMapper;
+import com.ems.admin.system.mapper.SysUserRoleMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+@Component
+public class PlatformSeedRunner implements ApplicationRunner {
+    static final String ADMIN_USERNAME = "admin";
+    static final String ADMIN_PASSWORD = "admin123";
+
+    private final JdbcTemplate jdbcTemplate;
+    private final SysMenuMapper menuMapper;
+    private final SysRoleMapper roleMapper;
+    private final SysUserMapper userMapper;
+    private final SysUserRoleMapper userRoleMapper;
+    private final RoleMenuBinder roleMenuBinder;
+    private final PasswordEncoder passwordEncoder;
+
+    public PlatformSeedRunner(JdbcTemplate jdbcTemplate, SysMenuMapper menuMapper, SysRoleMapper roleMapper,
+                              SysUserMapper userMapper, SysUserRoleMapper userRoleMapper, RoleMenuBinder roleMenuBinder,
+                              PasswordEncoder passwordEncoder) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.menuMapper = menuMapper;
+        this.roleMapper = roleMapper;
+        this.userMapper = userMapper;
+        this.userRoleMapper = userRoleMapper;
+        this.roleMenuBinder = roleMenuBinder;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    @Transactional
+    public void run(ApplicationArguments args) {
+        try {
+            ensurePlatformTenant();
+            TenantContext.set(TenantIds.PLATFORM);
+            Long exists = userMapper.selectCount(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, ADMIN_USERNAME));
+            if (exists != null && exists > 0) {
+                return;
+            }
+            if (menuMapper.selectCount(null) == 0) {
+                seedMenus();
+            }
+            SysRole role = new SysRole();
+            role.setTenantId(TenantIds.PLATFORM);
+            role.setCode(RoleTemplates.PLATFORM_ADMIN);
+            role.setName("平台管理员");
+            role.setDataScope("ALL");
+            role.setBuiltIn(1);
+            roleMapper.insert(role);
+            roleMenuBinder.bindAll(role.getId());
+
+            SysUser user = new SysUser();
+            user.setTenantId(TenantIds.PLATFORM);
+            user.setUsername(ADMIN_USERNAME);
+            user.setPassword(passwordEncoder.encode(ADMIN_PASSWORD));
+            user.setNickname("平台管理员");
+            user.setStatus("ENABLED");
+            userMapper.insert(user);
+
+            SysUserRole link = new SysUserRole();
+            link.setTenantId(TenantIds.PLATFORM);
+            link.setUserId(user.getId());
+            link.setRoleId(role.getId());
+            userRoleMapper.insert(link);
+            log.warn("已初始化平台管理员账号 {} ，初始密码 {} ，请立即修改", ADMIN_USERNAME, ADMIN_PASSWORD);
+        } finally {
+            TenantContext.clear();
+        }
+    }
+
+    private void ensurePlatformTenant() {
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_tenant WHERE id = 0", Integer.class);
+        if (count != null && count > 0) {
+            return;
+        }
+        String product = jdbcTemplate.execute((ConnectionCallback<String>) connection -> connection.getMetaData().getDatabaseProductName());
+        boolean mysql = product != null && product.toLowerCase().contains("mysql");
+        if (mysql) {
+            jdbcTemplate.execute("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',NO_AUTO_VALUE_ON_ZERO')");
+        } else {
+            // H2 的 MySQL 模式会把显式写入的 0 当成“生成下一个自增值”。
+            jdbcTemplate.execute("ALTER TABLE sys_tenant ALTER COLUMN id DROP IDENTITY");
+        }
+        jdbcTemplate.update("""
+                INSERT INTO sys_tenant (id, name, code, contact, status, tenant_id, created_at, updated_at, deleted)
+                VALUES (0, '平台', 'platform', NULL, 'ENABLED', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
+                """);
+        if (!mysql) {
+            jdbcTemplate.execute("ALTER TABLE sys_tenant ALTER COLUMN id BIGINT GENERATED BY DEFAULT AS IDENTITY (START WITH 1)");
+        }
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM sys_tenant WHERE code = 'platform'", Long.class);
+        if (id == null || id != 0L) {
+            throw new IllegalStateException("平台租户必须使用 id 0，当前为 " + id);
+        }
+    }
+
+    private void seedMenus() {
+        SysMenu system = menu(0L, "系统管理", "M", "/system", null, 1);
+        pageButtons(system.getId(), "租户管理", "/system/tenant", "system:tenant", 1);
+        pageButtons(system.getId(), "用户管理", "/system/user", "system:user", 2);
+        pageButtons(system.getId(), "角色管理", "/system/role", "system:role", 3);
+        pageButtons(system.getId(), "菜单管理", "/system/menu", "system:menu", 4);
+
+        SysMenu station = menu(0L, "电站管理", "M", "/station", null, 2);
+        pageButtons(station.getId(), "电站", "/station/station", "station:station", 1);
+        pageButtons(station.getId(), "网关", "/station/gateway", "station:gateway", 2);
+        SysMenu device = pageButtons(station.getId(), "设备", "/station/device", "station:device", 3);
+        menu(device.getId(), "设备控制", "F", null, Perms.DEVICE_CONTROL, 5);
+
+        SysMenu thing = menu(0L, "物模型", "M", "/thing", null, 3);
+        SysMenu product = pageButtons(thing.getId(), "产品", "/thing/product", "thing:product", 1);
+        menu(product.getId(), "发布产品", "F", null, Perms.PRODUCT_PUBLISH, 5);
+        pageButtons(thing.getId(), "属性", "/thing/property", "thing:property", 2);
+        pageButtons(thing.getId(), "事件", "/thing/event", "thing:event", 3);
+        pageButtons(thing.getId(), "服务", "/thing/service", "thing:service", 4);
+
+        SysMenu data = menu(0L, "数据监视", "M", "/data", null, 4);
+        menu(data.getId(), "测点曲线", "C", "/data/metric", Perms.METRIC_QUERY, 1);
+    }
+
+    private SysMenu pageButtons(Long parentId, String name, String path, String permPrefix, int sort) {
+        SysMenu page = menu(parentId, name, "C", path, permPrefix + ":list", sort);
+        menu(page.getId(), name + "新增", "F", null, permPrefix + ":add", 1);
+        menu(page.getId(), name + "修改", "F", null, permPrefix + ":edit", 2);
+        menu(page.getId(), name + "删除", "F", null, permPrefix + ":remove", 3);
+        return page;
+    }
+
+    private SysMenu menu(Long parentId, String name, String type, String path, String perms, int sort) {
+        SysMenu menu = new SysMenu();
+        menu.setTenantId(TenantIds.PLATFORM);
+        menu.setParentId(parentId);
+        menu.setName(name);
+        menu.setMenuType(type);
+        menu.setPath(path);
+        menu.setPerms(perms);
+        menu.setSortNum(sort);
+        menu.setVisible(1);
+        menuMapper.insert(menu);
+        return menu;
+    }
+}
