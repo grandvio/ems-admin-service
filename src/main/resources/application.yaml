@@ -35,3 +35,11 @@ ems:
     password: ${TD_PASSWORD:Jx5rUd0OFHt8ziop}
     database: ${TD_DATABASE:cloud_db}
     connection-timeout-ms: ${TD_CONNECTION_TIMEOUT_MS:3000}
+  oss:
+    endpoint: ${OSS_ENDPOINT:https://oss-cn-hongkong.aliyuncs.com}
+    public-endpoint: ${OSS_PUBLIC_ENDPOINT:https://dev-oss-rn.renoncloudx.com}
+    bucket: ${OSS_BUCKET:dev-renon-power}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    upload-expire-minutes: ${OSS_UPLOAD_EXPIRE_MINUTES:10}
+    read-expire-minutes: ${OSS_READ_EXPIRE_MINUTES:120}

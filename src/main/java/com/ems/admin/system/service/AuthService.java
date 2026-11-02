@@ -7,6 +7,7 @@ import com.ems.admin.asset.service.StationGuard;
 import com.ems.admin.common.TenantIds;
 import com.ems.admin.common.exception.BizException;
 import com.ems.admin.framework.security.CurrentUser;
+import com.ems.admin.oss.OssUrls;
 import com.ems.admin.framework.security.JwtService;
 import com.ems.admin.framework.security.LoginUser;
 import com.ems.admin.framework.tenant.TenantContext;
@@ -31,10 +32,11 @@ public class AuthService {
     private final MenuTreeService menuTreeService;
     private final StationGuard stationGuard;
     private final EmsStationMapper stationMapper;
+    private final OssUrls ossUrls;
 
     public AuthService(SysUserMapper userMapper, SysTenantMapper tenantMapper, PasswordEncoder passwordEncoder,
                        JwtService jwtService, AuthQueryService authQueryService, MenuTreeService menuTreeService,
-                       StationGuard stationGuard, EmsStationMapper stationMapper) {
+                       StationGuard stationGuard, EmsStationMapper stationMapper, OssUrls ossUrls) {
         this.userMapper = userMapper;
         this.tenantMapper = tenantMapper;
         this.passwordEncoder = passwordEncoder;
@@ -43,6 +45,7 @@ public class AuthService {
         this.menuTreeService = menuTreeService;
         this.stationGuard = stationGuard;
         this.stationMapper = stationMapper;
+        this.ossUrls = ossUrls;
     }
 
     public SystemDtos.LoginResponse login(SystemDtos.LoginRequest request) {
@@ -89,6 +92,7 @@ public class AuthService {
         info.setTenantId(user.getTenantId());
         info.setUsername(user.getUsername());
         info.setNickname(user.getNickname());
+        info.setAvatarUrl(ossUrls.read(user.getAvatarKey()));
         info.setTenantName(tenant == null ? null : tenant.getName());
         List<SysRole> roles = authQueryService.rolesOf(user.getId());
         info.setRoles(roles.stream().map(SysRole::getCode).toList());

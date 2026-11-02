@@ -82,6 +82,7 @@ public final class SystemDtos {
         private String nickname;
         private String phone;
         private String status;
+        private String avatarUrl;
         private LocalDateTime createdAt;
         private List<Long> roleIds;
     }
@@ -143,6 +144,7 @@ public final class SystemDtos {
         private Long tenantId;
         private String username;
         private String nickname;
+        private String avatarUrl;
         private String tenantName;
         private List<String> roles;
         private List<String> permissions;

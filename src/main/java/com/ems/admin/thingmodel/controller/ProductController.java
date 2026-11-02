@@ -2,10 +2,14 @@ package com.ems.admin.thingmodel.controller;
 
 import com.ems.admin.common.api.PageResult;
 import com.ems.admin.common.api.R;
+import com.ems.admin.common.exception.BizException;
 import com.ems.admin.system.Perms;
 import com.ems.admin.thingmodel.dto.ThingDtos;
 import com.ems.admin.thingmodel.service.ProductService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +20,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -67,6 +73,29 @@ public class ProductController {
     @PreAuthorize("hasAuthority('" + Perms.PRODUCT_PUBLISH + "')")
     public R<Integer> publish(@PathVariable Long id) {
         return R.ok(productService.publish(id));
+    }
+
+    @GetMapping("/{id}/model/export")
+    @PreAuthorize("hasAuthority('" + Perms.PRODUCT_LIST + "')")
+    public ResponseEntity<byte[]> exportModel(@PathVariable Long id) {
+        ProductService.ExportedModel exported = productService.exportModel(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exported.filename() + "\"")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(exported.body());
+    }
+
+    @PostMapping(value = "/model/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('" + Perms.PRODUCT_ADD + "')")
+    public R<Long> importNew(@RequestParam("file") MultipartFile file) {
+        return R.ok(productService.importNew(readFile(file)));
+    }
+
+    @PutMapping(value = "/{id}/model/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('" + Perms.PRODUCT_EDIT + "')")
+    public R<Void> importInto(@PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        productService.importInto(id, readFile(file));
+        return R.ok();
     }
 
     @GetMapping("/{productId}/properties")
@@ -148,5 +177,20 @@ public class ProductController {
     public R<Void> deleteService(@PathVariable Long productId, @PathVariable Long id) {
         productService.deleteService(productId, id);
         return R.ok();
+    }
+
+    private byte[] readFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw BizException.badRequest("请上传物模型 JSON 文件");
+        }
+        String name = file.getOriginalFilename();
+        if (name != null && !name.toLowerCase().endsWith(".json")) {
+            throw BizException.badRequest("只支持 .json 文件");
+        }
+        try {
+            return file.getBytes();
+        } catch (IOException e) {
+            throw BizException.badRequest("读取文件失败");
+        }
     }
 }

@@ -5,8 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ems.admin.common.api.PageResult;
 import com.ems.admin.common.api.Pages;
 import com.ems.admin.common.exception.BizException;
+import com.ems.admin.common.tx.AfterCommit;
 import com.ems.admin.framework.security.CurrentUser;
 import com.ems.admin.framework.tenant.TenantContext;
+import com.ems.admin.oss.ObjectStorage;
+import com.ems.admin.oss.OssObjects;
+import com.ems.admin.oss.OssUrls;
 import com.ems.admin.system.dto.SystemDtos;
 import com.ems.admin.system.entity.SysRole;
 import com.ems.admin.system.entity.SysUser;
@@ -27,13 +31,19 @@ public class UserService {
     private final SysRoleMapper roleMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final OssUrls ossUrls;
+    private final ObjectStorage objectStorage;
+    private final AfterCommit afterCommit;
 
     public UserService(SysUserMapper userMapper, SysRoleMapper roleMapper, SysUserRoleMapper userRoleMapper,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder, OssUrls ossUrls, ObjectStorage objectStorage, AfterCommit afterCommit) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.passwordEncoder = passwordEncoder;
+        this.ossUrls = ossUrls;
+        this.objectStorage = objectStorage;
+        this.afterCommit = afterCommit;
     }
 
     public PageResult<SystemDtos.UserVO> page(long pageNum, long pageSize, String username, String nickname) {
@@ -86,9 +96,11 @@ public class UserService {
         if (id.equals(CurrentUser.require().getUserId())) {
             throw BizException.badRequest("不能删除当前登录用户");
         }
-        require(id);
+        SysUser user = require(id);
+        String avatarKey = user.getAvatarKey();
         userRoleMapper.deleteByUserId(id);
         userMapper.deleteById(id);
+        afterCommit.run(() -> OssObjects.deleteQuietly(objectStorage, avatarKey));
     }
 
     private void replaceRoles(Long userId, List<Long> roleIds) {
@@ -138,6 +150,7 @@ public class UserService {
         vo.setNickname(user.getNickname());
         vo.setPhone(user.getPhone());
         vo.setStatus(user.getStatus());
+        vo.setAvatarUrl(ossUrls.read(user.getAvatarKey()));
         vo.setCreatedAt(user.getCreatedAt());
         if (withRoles) {
             vo.setRoleIds(userRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, user.getId()))

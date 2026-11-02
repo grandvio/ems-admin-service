@@ -17,11 +17,15 @@ import com.ems.admin.thingmodel.mapper.IotEventMapper;
 import com.ems.admin.thingmodel.mapper.IotProductMapper;
 import com.ems.admin.thingmodel.mapper.IotPropertyMapper;
 import com.ems.admin.thingmodel.mapper.IotServiceMapper;
+import com.ems.admin.thingmodel.dto.ThingModelFile;
+import jakarta.validation.Validator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
@@ -33,14 +37,16 @@ public class ProductService {
     private final IotEventMapper eventMapper;
     private final IotServiceMapper serviceMapper;
     private final EmsDeviceMapper deviceMapper;
+    private final Validator validator;
 
     public ProductService(IotProductMapper productMapper, IotPropertyMapper propertyMapper, IotEventMapper eventMapper,
-                          IotServiceMapper serviceMapper, EmsDeviceMapper deviceMapper) {
+                          IotServiceMapper serviceMapper, EmsDeviceMapper deviceMapper, Validator validator) {
         this.productMapper = productMapper;
         this.propertyMapper = propertyMapper;
         this.eventMapper = eventMapper;
         this.serviceMapper = serviceMapper;
         this.deviceMapper = deviceMapper;
+        this.validator = validator;
     }
 
     public PageResult<ThingDtos.ProductVO> page(long pageNum, long pageSize, String name, String status) {
@@ -92,6 +98,50 @@ public class ProductService {
         product.setStatus("PUBLISHED");
         productMapper.updateById(product);
         return version;
+    }
+
+    public ExportedModel exportModel(Long id) {
+        IotProduct product = requireVisible(id);
+        ThingModelFile file = new ThingModelFile();
+        file.setSpecVersion(ThingModelFile.SPEC_VERSION);
+        file.setProduct(new ThingDtos.ProductRequest(product.getCode(), product.getName(), product.getDescription()));
+        file.setProperties(listProperties(id).stream()
+                .map(item -> new ThingDtos.PropertyRequest(item.getIdentifier(), item.getName(), item.getDataType(),
+                        item.getUnit(), item.getAccessMode(), item.getMinValue(), item.getMaxValue(), item.getGroupCode()))
+                .toList());
+        file.setEvents(listEvents(id).stream()
+                .map(item -> new ThingDtos.EventRequest(item.getIdentifier(), item.getName(), item.getLevel(), item.getDescription()))
+                .toList());
+        file.setServices(listServices(id).stream()
+                .map(item -> new ThingDtos.ServiceRequest(item.getIdentifier(), item.getName(), item.getInputParams(), item.getDescription()))
+                .toList());
+        return new ExportedModel(product.getCode() + "-thing-model.json", ThingModelJson.write(file));
+    }
+
+    @Transactional
+    public Long importNew(byte[] bytes) {
+        ThingModelFile file = readModel(bytes);
+        Long id = create(file.getProduct());
+        insertChildren(productMapper.selectById(id), file);
+        return id;
+    }
+
+    @Transactional
+    public void importInto(Long id, byte[] bytes) {
+        ThingModelFile file = readModel(bytes);
+        IotProduct product = requireOwned(id);
+        assertCodeFree(file.getProduct().code(), id);
+        product.setCode(file.getProduct().code());
+        product.setName(file.getProduct().name());
+        product.setDescription(file.getProduct().description());
+        productMapper.updateById(product);
+        propertyMapper.delete(new LambdaQueryWrapper<IotProperty>().eq(IotProperty::getProductId, id));
+        eventMapper.delete(new LambdaQueryWrapper<IotEvent>().eq(IotEvent::getProductId, id));
+        serviceMapper.delete(new LambdaQueryWrapper<IotService>().eq(IotService::getProductId, id));
+        insertChildren(product, file);
+    }
+
+    public record ExportedModel(String filename, byte[] body) {
     }
 
     @Transactional
@@ -263,6 +313,77 @@ public class ProductService {
             throw BizException.unauthorized("缺少租户上下文");
         }
         return tenantId;
+    }
+
+    private ThingModelFile readModel(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            throw BizException.badRequest("请上传物模型 JSON 文件");
+        }
+        ThingModelFile file = ThingModelJson.read(bytes);
+        if (file.getSpecVersion() != null && file.getSpecVersion() != ThingModelFile.SPEC_VERSION) {
+            throw BizException.badRequest("不支持的物模型文件版本");
+        }
+        if (file.getProduct() == null) {
+            throw BizException.badRequest("缺少 product");
+        }
+        validateBean(file.getProduct());
+        List<ThingDtos.PropertyRequest> properties = file.getProperties() == null ? List.of() : file.getProperties();
+        List<ThingDtos.EventRequest> events = file.getEvents() == null ? List.of() : file.getEvents();
+        List<ThingDtos.ServiceRequest> services = file.getServices() == null ? List.of() : file.getServices();
+        properties.forEach(this::validateBean);
+        events.forEach(this::validateBean);
+        services.forEach(this::validateBean);
+        assertUnique(properties.stream().map(ThingDtos.PropertyRequest::identifier).toList(), "属性");
+        assertUnique(events.stream().map(ThingDtos.EventRequest::identifier).toList(), "事件");
+        assertUnique(services.stream().map(ThingDtos.ServiceRequest::identifier).toList(), "服务");
+        file.setProperties(properties);
+        file.setEvents(events);
+        file.setServices(services);
+        return file;
+    }
+
+    private void insertChildren(IotProduct product, ThingModelFile file) {
+        for (ThingDtos.PropertyRequest request : file.getProperties()) {
+            assertIdentifier(request.identifier());
+            IotProperty property = new IotProperty();
+            property.setTenantId(product.getTenantId());
+            property.setProductId(product.getId());
+            fillProperty(property, request);
+            propertyMapper.insert(property);
+        }
+        for (ThingDtos.EventRequest request : file.getEvents()) {
+            assertIdentifier(request.identifier());
+            IotEvent event = new IotEvent();
+            event.setTenantId(product.getTenantId());
+            event.setProductId(product.getId());
+            fillEvent(event, request);
+            eventMapper.insert(event);
+        }
+        for (ThingDtos.ServiceRequest request : file.getServices()) {
+            assertIdentifier(request.identifier());
+            IotService service = new IotService();
+            service.setTenantId(product.getTenantId());
+            service.setProductId(product.getId());
+            fillService(service, request);
+            serviceMapper.insert(service);
+        }
+    }
+
+    private void validateBean(Object bean) {
+        var violations = validator.validate(bean);
+        if (!violations.isEmpty()) {
+            var first = violations.iterator().next();
+            throw BizException.badRequest(first.getPropertyPath() + "不合法");
+        }
+    }
+
+    private void assertUnique(List<String> identifiers, String label) {
+        Set<String> seen = new HashSet<>();
+        for (String identifier : identifiers) {
+            if (!seen.add(identifier)) {
+                throw BizException.badRequest(label + "标识重复: " + identifier);
+            }
+        }
     }
 
     private void assertCodeFree(String code, Long excludeId) {

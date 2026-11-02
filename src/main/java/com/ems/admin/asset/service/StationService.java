@@ -11,10 +11,14 @@ import com.ems.admin.common.api.PageResult;
 import com.ems.admin.common.api.Pages;
 import com.ems.admin.common.exception.BizException;
 import com.ems.admin.framework.tenant.TenantContext;
+import com.ems.admin.oss.service.StationImageService;
 import com.ems.admin.system.mapper.SysRoleStationMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class StationService {
@@ -22,13 +26,16 @@ public class StationService {
     private final EmsGatewayMapper gatewayMapper;
     private final SysRoleStationMapper roleStationMapper;
     private final StationGuard stationGuard;
+    private final StationImageService stationImageService;
 
     public StationService(EmsStationMapper stationMapper, EmsGatewayMapper gatewayMapper,
-                          SysRoleStationMapper roleStationMapper, StationGuard stationGuard) {
+                          SysRoleStationMapper roleStationMapper, StationGuard stationGuard,
+                          StationImageService stationImageService) {
         this.stationMapper = stationMapper;
         this.gatewayMapper = gatewayMapper;
         this.roleStationMapper = roleStationMapper;
         this.stationGuard = stationGuard;
+        this.stationImageService = stationImageService;
     }
 
     public PageResult<AssetDtos.StationVO> page(long pageNum, long pageSize, String name, String stationType, String status) {
@@ -45,12 +52,17 @@ public class StationService {
         }
         wrapper.orderByDesc(EmsStation::getId);
         Page<EmsStation> page = stationMapper.selectPage(Pages.of(pageNum, pageSize), wrapper);
-        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), page.getRecords().stream().map(this::toVo).toList());
+        List<AssetDtos.StationVO> rows = page.getRecords().stream().map(this::toVo).toList();
+        Map<Long, String> covers = stationImageService.coverUrls(rows.stream().map(AssetDtos.StationVO::getId).toList());
+        rows.forEach(row -> row.setCoverUrl(covers.get(row.getId())));
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), rows);
     }
 
     public AssetDtos.StationVO get(Long id) {
         stationGuard.check(id);
-        return toVo(require(id));
+        AssetDtos.StationVO vo = toVo(require(id));
+        vo.setCoverUrl(stationImageService.coverUrl(id));
+        return vo;
     }
 
     @Transactional
@@ -80,6 +92,7 @@ public class StationService {
             throw BizException.conflict("请先删除电站下的网关");
         }
         roleStationMapper.deleteByStationId(id);
+        stationImageService.detach(id);
         stationMapper.deleteById(id);
     }
 

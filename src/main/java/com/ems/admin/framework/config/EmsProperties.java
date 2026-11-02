@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class EmsProperties {
     private final Jwt jwt = new Jwt();
     private final Tdengine tdengine = new Tdengine();
+    private final Oss oss = new Oss();
 
     @Data
     public static class Jwt {
@@ -22,5 +23,19 @@ public class EmsProperties {
         private String password;
         private String database = "cloud_db";
         private long connectionTimeoutMs = 3000;
+    }
+
+    @Data
+    public static class Oss {
+        private String endpoint = "https://oss-cn-hongkong.aliyuncs.com";
+        private String publicEndpoint = "https://dev-oss-rn.renoncloudx.com";
+        private String bucket = "dev-renon-power";
+        private String accessKeyId = "";
+        private String accessKeySecret = "";
+        private long uploadExpireMinutes = 10;
+        private long readExpireMinutes = 120;
+        private long avatarMaxBytes = 2L * 1024 * 1024;
+        private long stationImageMaxBytes = 5L * 1024 * 1024;
+        private int stationImageMaxCount = 9;
     }
 }

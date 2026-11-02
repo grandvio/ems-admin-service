@@ -17,7 +17,7 @@ public final class AssetDtos {
     public record StationRequest(
             @NotBlank @Size(max = 32) String code,
             @NotBlank @Size(max = 64) String name,
-            @NotBlank @Pattern(regexp = "PV|STORAGE|PV_STORAGE|CHARGE") String stationType,
+            @NotBlank @Pattern(regexp = "STORAGE|PV_STORAGE|PV_STORAGE_CHARGE") String stationType,
             @Size(max = 255) String address,
             BigDecimal longitude,
             BigDecimal latitude,
@@ -44,6 +44,7 @@ public final class AssetDtos {
         private BigDecimal storageKwh;
         private LocalDate gridConnectedDate;
         private String status;
+        private String coverUrl;
         private LocalDateTime createdAt;
     }
 

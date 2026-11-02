@@ -9,7 +9,9 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration/V1__init.sql
+      schema-locations:
+        - classpath:db/migration/V1__init.sql
+        - classpath:db/migration/V2__oss.sql
 
 ems:
   jwt:
@@ -21,3 +23,11 @@ ems:
     password: ""
     database: cloud_db
     connection-timeout-ms: 300
+  oss:
+    endpoint: https://oss-cn-hongkong.aliyuncs.com
+    public-endpoint: https://oss.example.com
+    bucket: test-bucket
+    access-key-id: testAccessKeyId
+    access-key-secret: testAccessKeySecret
+    upload-expire-minutes: 10
+    read-expire-minutes: 120
