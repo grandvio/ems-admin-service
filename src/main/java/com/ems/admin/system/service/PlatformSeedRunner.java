@@ -137,6 +137,8 @@ public class PlatformSeedRunner implements ApplicationRunner {
 
         SysMenu data = menu(0L, "数据监视", "M", "/data", null, 4);
         menu(data.getId(), "测点曲线", "C", "/data/metric", Perms.METRIC_QUERY, 1);
+        menu(data.getId(), "电站监控", "C", "/data/station", Perms.STATION_LIST, 2);
+        menu(data.getId(), "总览大屏", "C", "/data/overview", null, 3);
     }
 
     private SysMenu pageButtons(Long parentId, String name, String path, String permPrefix, int sort) {

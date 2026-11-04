@@ -23,7 +23,8 @@ public class MybatisPlusConfig {
      * 物模型需要同时看见平台标准产品（tenant_id=0）和本租户产品，等值插件做不到，改在服务层过滤。
      */
     private static final Set<String> IGNORE_TABLES = Set.of(
-            "sys_tenant", "sys_menu", "iot_product", "iot_property", "iot_event", "iot_service"
+            "sys_tenant", "sys_menu", "iot_product", "iot_property", "iot_event", "iot_service",
+            "ems_price_location", "ems_market_price"
     );
 
     @Bean

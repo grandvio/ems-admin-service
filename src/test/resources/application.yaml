@@ -12,6 +12,10 @@ spring:
       schema-locations:
         - classpath:db/migration/V1__init.sql
         - classpath:db/migration/V2__oss.sql
+        - classpath:db/migration/V3__energy.sql
+        - classpath:db/migration/V4__energy_source.sql
+        - classpath:db/migration/V5__tariff.sql
+        - classpath:db/migration/V6__realtime_price.sql
 
 ems:
   jwt:
@@ -31,3 +35,10 @@ ems:
     access-key-secret: testAccessKeySecret
     upload-expire-minutes: 10
     read-expire-minutes: 120
+  energy:
+    rollup-delay-ms: 3600000
+    rollup-initial-delay-ms: 3600000
+  price:
+    sync-enabled: false
+    entsoe-security-token: ""
+    entsoe-endpoint: https://entsoe.example/api

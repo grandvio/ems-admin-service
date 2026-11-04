@@ -9,6 +9,7 @@ public class EmsProperties {
     private final Jwt jwt = new Jwt();
     private final Tdengine tdengine = new Tdengine();
     private final Oss oss = new Oss();
+    private final Price price = new Price();
 
     @Data
     public static class Jwt {
@@ -37,5 +38,12 @@ public class EmsProperties {
         private long avatarMaxBytes = 2L * 1024 * 1024;
         private long stationImageMaxBytes = 5L * 1024 * 1024;
         private int stationImageMaxCount = 9;
+    }
+
+    @Data
+    public static class Price {
+        private boolean syncEnabled = true;
+        private String entsoeSecurityToken = "";
+        private String entsoeEndpoint = "https://web-api.tp.entsoe.eu/api";
     }
 }

@@ -9,6 +9,7 @@ import com.ems.admin.asset.mapper.EmsDeviceMapper;
 import com.ems.admin.common.api.PageResult;
 import com.ems.admin.common.api.Pages;
 import com.ems.admin.common.exception.BizException;
+import com.ems.admin.energy.EnergySourceService;
 import com.ems.admin.framework.tenant.TenantContext;
 import com.ems.admin.thingmodel.entity.IotProduct;
 import com.ems.admin.thingmodel.service.ProductService;
@@ -22,13 +23,15 @@ public class DeviceService {
     private final GatewayService gatewayService;
     private final StationGuard stationGuard;
     private final ProductService productService;
+    private final EnergySourceService energySourceService;
 
     public DeviceService(EmsDeviceMapper deviceMapper, GatewayService gatewayService, StationGuard stationGuard,
-                         ProductService productService) {
+                         ProductService productService, EnergySourceService energySourceService) {
         this.deviceMapper = deviceMapper;
         this.gatewayService = gatewayService;
         this.stationGuard = stationGuard;
         this.productService = productService;
+        this.energySourceService = energySourceService;
     }
 
     public PageResult<AssetDtos.DeviceVO> page(long pageNum, long pageSize, Long stationId, Long gatewayId, String name) {
@@ -84,6 +87,7 @@ public class DeviceService {
     @Transactional
     public void delete(Long id) {
         require(id);
+        energySourceService.purge(id);
         deviceMapper.deleteById(id);
     }
 

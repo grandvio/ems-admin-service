@@ -1,0 +1,163 @@
+{
+  "specVersion": 1,
+  "product": {
+    "code": "Meter_RE1001",
+    "name": "Meter",
+    "description": "测量正向、反向有功电能及电压、电流、功率。正向有功总电能 Meter/Epi、反向有功总电能 Meter/Epe 为累计值，单位 kWh。功率以正向为正。"
+  },
+  "properties": [
+    {
+      "identifier": "Meter/Epi",
+      "name": "正向有功总电能",
+      "dataType": "float",
+      "unit": "kWh",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Epe",
+      "name": "反向有功总电能",
+      "dataType": "float",
+      "unit": "kWh",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/P",
+      "name": "总有功功率",
+      "dataType": "float",
+      "unit": "kW",
+      "accessMode": "r",
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Q",
+      "name": "总无功功率",
+      "dataType": "float",
+      "unit": "kvar",
+      "accessMode": "r",
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/S",
+      "name": "总视在功率",
+      "dataType": "float",
+      "unit": "kVA",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Pf",
+      "name": "总功率因数",
+      "dataType": "float",
+      "accessMode": "r",
+      "minValue": -1,
+      "maxValue": 1,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/F",
+      "name": "频率",
+      "dataType": "float",
+      "unit": "Hz",
+      "accessMode": "r",
+      "minValue": 45,
+      "maxValue": 65,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ua",
+      "name": "A相电压",
+      "dataType": "float",
+      "unit": "V",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ub",
+      "name": "B相电压",
+      "dataType": "float",
+      "unit": "V",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Uc",
+      "name": "C相电压",
+      "dataType": "float",
+      "unit": "V",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ia",
+      "name": "A相电流",
+      "dataType": "float",
+      "unit": "A",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ib",
+      "name": "B相电流",
+      "dataType": "float",
+      "unit": "A",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ic",
+      "name": "C相电流",
+      "dataType": "float",
+      "unit": "A",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "TELEMETRY"
+    },
+    {
+      "identifier": "Meter/Ct_ratio",
+      "name": "电流变比",
+      "dataType": "float",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "STATUS"
+    },
+    {
+      "identifier": "Meter/Pt_ratio",
+      "name": "电压变比",
+      "dataType": "float",
+      "accessMode": "r",
+      "minValue": 0,
+      "groupCode": "STATUS"
+    }
+  ],
+  "events": [
+    {
+      "identifier": "Meter/Phase_loss",
+      "name": "缺相",
+      "level": "WARN",
+      "description": "任一相电压或电流丢失"
+    },
+    {
+      "identifier": "Meter/Reverse_power",
+      "name": "功率方向异常",
+      "level": "WARN",
+      "description": "有功功率方向与电表安装用途不一致"
+    },
+    {
+      "identifier": "Meter/Meter_fault",
+      "name": "电表故障",
+      "level": "CRITICAL",
+      "description": "电表本体故障或计量异常"
+    }
+  ],
+  "services": []
+}

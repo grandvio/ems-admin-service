@@ -43,3 +43,7 @@ ems:
     access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
     upload-expire-minutes: ${OSS_UPLOAD_EXPIRE_MINUTES:10}
     read-expire-minutes: ${OSS_READ_EXPIRE_MINUTES:120}
+  price:
+    sync-enabled: ${PRICE_SYNC_ENABLED:true}
+    entsoe-security-token: ${ENTSOE_SECURITY_TOKEN:}
+    entsoe-endpoint: ${ENTSOE_ENDPOINT:https://web-api.tp.entsoe.eu/api}
